@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cờ Caro</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: #1f2430; color: #eee;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .screen { min-height: 100vh; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 14px; }
+  .screen.active { display: flex; }
+  .x { color: #ff6b5e; } .o { color: #6ea8ff; }
+
+/* starting menu */
+  #menu {
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,107,94,.18), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(110,168,255,.18), transparent 40%),
+      #1f2430;
+  }
+  .logo { font-size: clamp(48px, 14vw, 88px); font-weight: 800; letter-spacing: 6px; margin: 0; line-height: 1; }
+  .logo span:nth-child(2) { color: #f4efe6; font-size: .5em; vertical-align: middle; margin: 0 8px; letter-spacing: 0; }
+  .subtitle { margin: 0 0 12px; color: #aab; font-size: 16px; text-align: center; }
+  .menu-box { display: flex; flex-direction: column; gap: 12px; width: min(86vw, 340px); }
+  .menu-box[hidden] { display: none; }
+  .btn-main {
+    font: inherit; font-size: 19px; font-weight: 600; padding: 15px 20px; border-radius: 12px;
+    border: none; color: #fff; cursor: pointer; transition: transform .12s, filter .12s;
+  }
+  .btn-main:hover { transform: translateY(-2px); filter: brightness(1.12); }
+  .btn-main:active { transform: translateY(0); }
+  .b-ai  { background: linear-gradient(135deg, #e8453c, #ff7a6b); }
+  .b-pvp { background: linear-gradient(135deg, #1a73e8, #5b9bff); }
+  .b-lv  { background: #343b4d; font-size: 17px; padding: 12px 16px; border: 1px solid #4a5268; }
+  .b-lv small { display: block; font-weight: 400; color: #aab; font-size: 13px; margin-top: 2px; }
+  .b-back { background: transparent; border: 1px solid #4a5268; color: #ccd; font-size: 16px; padding: 10px; }
+  .menu-title { text-align: center; font-size: 18px; margin: 0 0 4px; color: #dde; }
+
+  /* chọn luật */
+  .rule-box { background: #2a3040; border: 1px solid #3f4760; border-radius: 12px; padding: 12px; }
+  .rule-title { text-align: center; font-size: 14px; color: #aab; margin: 0 0 8px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    flex: 1; font: inherit; font-size: 16px; font-weight: 600; padding: 9px 4px; border-radius: 8px;
+    border: 1px solid #4a5268; background: #343b4d; color: #ccd; cursor: pointer; transition: background .12s;
+  }
+  .seg button:hover { background: #3f475c; }
+  .seg button.sel { background: #f4efe6; color: #1f2430; border-color: #f4efe6; }
+
+  /* game */
+  #game { background: #2b2b2b; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  .bar button {
+    font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid #555;
+    background: #3a3a3a; color: #eee; cursor: pointer;
+  }
+  .bar button:hover { background: #484848; }
+  #modeLabel { font-size: 15px; color: #bbb; text-align: center; }
+  #status { font-size: 18px; font-weight: 600; min-height: 26px; text-align: center; }
+  canvas {
+    width: min(94vw, 600px); height: auto; aspect-ratio: 1; background: #f4efe6;
+    border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.5); cursor: pointer; touch-action: manipulation;
+  }
+  .score { display: flex; gap: 24px; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<!-- ui menu -->
+<section id="menu" class="screen active">
+  <h1 class="logo"><span class="x">X</span><span>&amp;</span><span class="o">O</span></h1>
+  <p class="subtitle" id="subtitle">CỜ CARO · 5 quân liên tiếp là thắng</p>
+
+  <div id="menuMain" class="menu-box">
+    <div class="rule-box">
+      <p class="rule-title">Luật thắng</p>
+      <div class="seg" id="ruleSeg">
+        <button data-win="3">Đánh 3</button>
+        <button data-win="4">Đánh 4</button>
+        <button data-win="5" class="sel">Đánh 5</button>
+      </div>
+    </div>
+    <button class="btn-main b-ai" id="btnAI"> Đấu với máy</button>
+    <button class="btn-main b-pvp" id="btnPVP"> Đấu với người</button>
+  </div>
+
+  <div id="menuLevel" class="menu-box" hidden>
+    <p class="menu-title">Chọn độ khó</p>
+    <button class="btn-main b-lv" data-level="1">Dễ<small>Máy chỉ nhìn trước 1 nước</small></button>
+    <button class="btn-main b-lv" data-level="2">Vừa<small>Minimax độ sâu 2</small></button>
+    <button class="btn-main b-lv" data-level="3">Khó<small>Minimax độ sâu 3</small></button>
+    <button class="btn-main b-back" id="btnLevelBack">← Quay lại</button>
+  </div>
+</section>
+
+<!-- ui game -->
+<section id="game" class="screen">
+  <div class="bar">
+    <button id="menuBtn">← Menu</button>
+    <button id="newBtn">Ván mới</button>
+    <button id="undoBtn">Đi lại</button>
+  </div>
+  <div id="modeLabel"></div>
+  <div id="status"></div>
+  <canvas id="board" width="600" height="600"></canvas>
+  <div class="score">
+    <span class="x"><span id="nx">X</span>: <b id="sx">0</b></span>
+    <span class="o"><span id="no">O</span>: <b id="so">0</b></span>
+  </div>
+</section>
+
+<script>
+const N = 15, CELL = 40, SIZE = N * CELL;
+const cv = document.getElementById('board');
+cv.width = cv.height = SIZE;
+const ctx = cv.getContext('2d');
+const statusEl = document.getElementById('status');
+
+let WIN = 5;
+let mode = 'ai', level = 3;
+let board, turn, history;
+const LEVEL_NAME = { 1: 'Dễ', 2: 'Vừa', 3: 'Khó', 4: 'Rất khó' };
+
+// menu navigation
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+}
+const menuMain = document.getElementById('menuMain');
+const menuLevel = document.getElementById('menuLevel');
+
+document.querySelectorAll('#ruleSeg button').forEach(b => {
+  b.onclick = () => {
+    WIN = +b.dataset.win;
+    document.querySelectorAll('#ruleSeg button').forEach(x => x.classList.toggle('sel', x === b));
+    document.getElementById('subtitle').textContent = `CỜ CARO · ${WIN} quân liên tiếp là thắng`;
+  };
+});
+
+document.getElementById('btnAI').onclick = () => { menuMain.hidden = true; menuLevel.hidden = false; };
+document.getElementById('btnLevelBack').onclick = () => { menuLevel.hidden = true; menuMain.hidden = false; };
+document.getElementById('btnPVP').onclick = () => startGame('pvp');
+document.querySelectorAll('[data-level]').forEach(b => {
+  b.onclick = () => startGame('ai', +b.dataset.level);
+});
+document.getElementById('menuBtn').onclick = () => {
+  menuLevel.hidden = true; menuMain.hidden = false;
+  showScreen('menu');
+};
+
+function startGame(m, lv) {
+  mode = m; if (lv) level = lv;
+  const ai = mode === 'ai';
+  document.getElementById('nx').textContent = ai ? 'Bạn (X)' : 'Người 1 (X)';
+  document.getElementById('no').textContent = ai ? 'Máy (O)' : 'Người 2 (O)';
+  document.getElementById('modeLabel').textContent =
+    (ai ? `Đấu với máy · ${LEVEL_NAME[level]}` : 'Đấu với người') + ` · Đánh ${WIN} là thắng`;
+  init();
+  showScreen('game');
+}
+
+// giao diện khi chơi game
+function init() {
+  board = Array.from({ length: N }, () => Array(N).fill(0));
+  turn = 1; history = [];
+  updateStatus(); draw();
+}
+
+function updateStatus() {
+  statusEl.innerHTML = turn === 1
+    ? `Lượt: <span class="x">X</span>`
+    : `Lượt: <span class="o">O</span>`;
+}
+
+function draw() {
+  ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, SIZE, SIZE);
+  ctx.strokeStyle = '#c9bfa9'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) {
+    ctx.moveTo(i * CELL + .5, 0); ctx.lineTo(i * CELL + .5, SIZE);
+    ctx.moveTo(0, i * CELL + .5); ctx.lineTo(SIZE, i * CELL + .5);
+  }
+  ctx.stroke();
+
+  if (history.length) {
+    const [lr, lc] = history[history.length - 1];
+    ctx.fillStyle = 'rgba(255,214,0,.35)';
+    ctx.fillRect(lc * CELL + 1, lr * CELL + 1, CELL - 1, CELL - 1);
+  }
+
+  const m = 10;
+  ctx.lineWidth = 4; ctx.lineCap = 'round';
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const v = board[r][c]; if (!v) continue;
+    const x = c * CELL, y = r * CELL;
+    if (v === 1) {
+      ctx.strokeStyle = '#d93025';
+      ctx.beginPath();
+      ctx.moveTo(x + m, y + m); ctx.lineTo(x + CELL - m, y + CELL - m);
+      ctx.moveTo(x + CELL - m, y + m); ctx.lineTo(x + m, y + CELL - m);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#1a73e8';
+      ctx.beginPath();
+      ctx.arc(x + CELL / 2, y + CELL / 2, CELL / 2 - m + 1, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+// game events
+cv.addEventListener('click', e => {
+  const rect = cv.getBoundingClientRect();
+  const c = Math.floor((e.clientX - rect.left) * SIZE / rect.width / CELL);
+  const r = Math.floor((e.clientY - rect.top) * SIZE / rect.height / CELL);
+  if (r < 0 || c < 0 || r >= N || c >= N || board[r][c]) return;
+
+  board[r][c] = turn;
+  history.push([r, c]);
+  turn = 3 - turn;
+  updateStatus(); draw();
+});
+
+document.getElementById('newBtn').onclick = init;
+document.getElementById('undoBtn').onclick = () => {
+  if (!history.length) return;
+  const [r, c] = history.pop();
+  board[r][c] = 0;
+  turn = 3 - turn;
+  updateStatus(); draw();
+};
+</script>
+</body>
+</html>
